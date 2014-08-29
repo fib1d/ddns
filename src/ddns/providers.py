@@ -641,10 +641,7 @@ class DDNSProviderFreeDNSAfraidOrg(DDNSProvider):
         handle    = "freedns.afraid.org"
         name      = "freedns.afraid.org"
         website   = "http://freedns.afraid.org/"
-
-        # No information about the request or response could be found on the vendor
-        # page. All used values have been collected by testing.
-        url = "https://freedns.afraid.org/dynamic/update.php"
+        url       = "https://freedns.afraid.org/dynamic/update.php"
 
         @property
         def proto(self):
@@ -657,13 +654,13 @@ class DDNSProviderFreeDNSAfraidOrg(DDNSProvider):
                 # Hash username and password.
                 username = self.username.lower()
                 apistring = "%s|%s" % (self.username.lower(), self.password)
-                hash_object = hashlib.sha1(apistring)
+                apitokenobject = hashlib.sha1(apistring)
 
                 # Save as string.
-                authhash = hash_object.hexdigest()
+                apitoken = apitokenobject.hexdigest()
 
                 # Create request url for an api-token.
-                apireq = "%s?action=getdyndns&sha=%s" % (apiurl, authhash)
+                apireq = "%s?action=getdyndns&sha=%s" % (apiurl, apitoken)
 
                 # Send request to the server.
                 apiresponse = self.send_request(apireq)
@@ -683,12 +680,12 @@ class DDNSProviderFreeDNSAfraidOrg(DDNSProvider):
                         if self.hostname.lower() in line:
                                 # Extract the token
                                 statusarray = line.split('|')
-                                tokenarr = statusarray[-1].split('?')
+                                tokenarray = statusarray[-1].split('?')
                                 # Return token
-                                return tokenarr[1]
+                                return tokenarray[1]
 
                 # If we got here, the supplied host is not listed
-                # This might be due to typo in self.hostname
+                # This might be due to a typo in self.hostname
                 raise DDNSUpdateError
 
         def update(self):
