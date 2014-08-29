@@ -637,48 +637,93 @@ class DDNSProviderEntryDNS(DDNSProvider):
 		# If we got here, some other update error happened.
 		raise DDNSUpdateError
 
-
 class DDNSProviderFreeDNSAfraidOrg(DDNSProvider):
-	handle    = "freedns.afraid.org"
-	name      = "freedns.afraid.org"
-	website   = "http://freedns.afraid.org/"
+        handle    = "freedns.afraid.org"
+        name      = "freedns.afraid.org"
+        website   = "http://freedns.afraid.org/"
 
-	# No information about the request or response could be found on the vendor
-	# page. All used values have been collected by testing.
-	url = "https://freedns.afraid.org/dynamic/update.php"
+        # No information about the request or response could be found on the vendor
+        # page. All used values have been collected by testing.
+        url = "https://freedns.afraid.org/dynamic/update.php"
 
-	@property
-	def proto(self):
-		return self.get("proto")
+        @property
+        def proto(self):
+                return self.get("proto")
 
-	def update(self):
-		address = self.get_address(self.proto)
+        def gettoken(self):
+                import hashlib
+                apiurl = "https://freedns.afraid.org/api/"
 
-		data = {
-			"address" : address,
-		}
+                # Hash username and password.
+                username = self.username.lower()
+                apistring = "%s|%s" % (self.username.lower(), self.password)
+                hash_object = hashlib.sha1(apistring)
 
-		# Add auth token to the update url.
-		url = "%s?%s" % (self.url, self.token)
+                # Save as string.
+                authhash = hash_object.hexdigest()
 
-		# Send update to the server.
-		response = self.send_request(url, data=data)
+                # Create request url for an api-token.
+                apireq = "%s?action=getdyndns&sha=%s" % (apiurl, authhash)
 
-		# Get the full response message.
-		output = response.read()
+                # Send request to the server.
+                apiresponse = self.send_request(apireq)
 
-		# Handle success messages.
-		if output.startswith("Updated") or "has not changed" in output:
-			return
+                # Get the full response message.
+                apioutput = apiresponse.read()
 
-		# Handle error codes.
-		if output == "ERROR: Unable to locate this record":
-			raise DDNSAuthenticationError
-		elif "is an invalid IP address" in output:
-			raise DDNSRequestError(_("Invalid IP address has been sent."))
+                if "Could not authenticate" in apioutput:
+                        raise DDNSAuthenticationError
 
-		# If we got here, some other update error happened.
-		raise DDNSUpdateError
+                # Split response
+                apioutput = apioutput.splitlines()
+
+                # Search current host
+                for line in apioutput:
+                        # Search for host
+                        if self.hostname.lower() in line:
+                                # Extract the token
+                                statusarray = line.split('|')
+                                tokenarr = statusarray[-1].split('?')
+                                # Return token
+                                return tokenarr[1]
+
+                # If we got here, the supplied host is not listed
+                # This might be due to typo in self.hostname
+                raise DDNSUpdateError
+
+        def update(self):
+                address = self.get_address(self.proto)
+
+                data = {
+                        "address" : address,
+                }
+
+                if not self.token:
+                        token = self.gettoken()
+                else:
+                        token = self.token
+
+                # Add auth token to the update url.
+                url = "%s?%s" % (self.url, token)
+
+                # Send update to the server.
+                response = self.send_request(url, data=data)
+
+                # Get the full response message.
+                output = response.read()
+
+                # Handle success messages.
+                if output.startswith("Updated") or "has not changed" in output:
+                        return
+
+                # Handle error codes.
+                if output == "ERROR: Unable to locate this record":
+                        raise DDNSAuthenticationError
+                elif "is an invalid IP address" in output:
+                        raise DDNSRequestError(_("Invalid IP address has been sent."))
+
+                # If we got here, some other update error happened.
+                raise DDNSUpdateError
 
 
 class DDNSProviderLightningWireLabs(DDNSProvider):
